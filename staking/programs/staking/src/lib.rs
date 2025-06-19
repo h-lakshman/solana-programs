@@ -5,10 +5,10 @@ use anchor_lang::{
         program::{invoke, invoke_signed},
         system_instruction::transfer,
     },
-};
-use anchor_spl::token::{self as token, Mint, MintTo, Token, TokenAccount};
+};use anchor_spl::token::{self as token, Mint, MintTo, Token, TokenAccount};
 
-declare_id!("AFYuoTEtAiRQ3kDgwjPJQFZQrbNnmZ2FFGkq7Wm7piFo");
+declare_id!("Fn5jnsXvawRwwBHDMMkAAHoiaRpesE6zLVVXdhKarH1d");
+
 const SECONDS_PER_DAY: u64 = 86_400;
 const POINTS_PER_SOL_PER_DAY: u64 = 1_000_000; // 1 point = 10^6 micro points
 const POINTS_PER_REWARD: u64 = 10; // 10 points = 1 reward token
@@ -84,7 +84,7 @@ pub enum StakeError {
 }
 
 #[program]
-pub mod staking_program {
+pub mod staking {
 
     use super::*;
 
@@ -101,6 +101,8 @@ pub mod staking_program {
     }
 
     pub fn stake(ctx: Context<Stake>, quantity: u64) -> Result<()> {
+        require!(quantity > 0, StakeError::InvalidAmount);
+        
         let staked_acc_key = &ctx.accounts.user_stake_account.key();
         let account_infos = [
             ctx.accounts.user.to_account_info(),
@@ -113,8 +115,12 @@ pub mod staking_program {
         update_points(user_staked_account, clock.unix_timestamp)?;
 
         let transfer_instruction = transfer(&ctx.accounts.user.key(), staked_acc_key, quantity);
-
         invoke(&transfer_instruction, &account_infos)?;
+
+        user_staked_account.staked_amount = user_staked_account.staked_amount
+            .checked_add(quantity)
+            .ok_or(StakeError::Overflow)?;
+        user_staked_account.stake_timestamp = clock.unix_timestamp;
 
         msg!(
             "Staked {} lamports. Total staked: {}, Total points: {}",
@@ -127,29 +133,39 @@ pub mod staking_program {
 
     pub fn unstake(ctx: Context<Unstake>, quantity: u64) -> Result<()> {
         require!(quantity > 0, StakeError::InvalidAmount);
-        let user_key = ctx.accounts.user.key();
+        
         let user_staked_acc = &mut ctx.accounts.user_stake_account;
         let user_acc = &mut ctx.accounts.user;
         let clock = Clock::get()?;
+        
         require!(
             user_staked_acc.staked_amount >= quantity,
             StakeError::InsufficientStake
         );
+        
         update_points(user_staked_acc, clock.unix_timestamp)?;
 
+        let user_key = user_acc.key();
         let user_acc_seeds = &[
-            b"staked_accoount",
+            b"staked_account",
             user_key.as_ref(),
             &[user_staked_acc.bump],
         ];
-        let ix = transfer(&user_staked_acc.key(), user_acc.key, quantity);
+        
+        let ix = transfer(&user_staked_acc.key(), &user_key, quantity);
         let account_infos = &[
-            user_acc.to_account_info(),
             user_staked_acc.to_account_info(),
+            user_acc.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
         ];
 
         invoke_signed(&ix, account_infos, &[user_acc_seeds])?;
+        
+        user_staked_acc.staked_amount = user_staked_acc.staked_amount
+            .checked_sub(quantity)
+            .ok_or(StakeError::Underflow)?;
+        user_staked_acc.stake_timestamp = clock.unix_timestamp;
+
         msg!(
             "Unstaked {} lamports. Remaining staked: {}, Total points: {}",
             quantity,
@@ -160,7 +176,6 @@ pub mod staking_program {
     }
 
     pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
-        let user_key = ctx.accounts.user.key();
         let user_staked_acc = &mut ctx.accounts.user_stake_account;
         let clock = Clock::get()?;
 
@@ -171,8 +186,8 @@ pub mod staking_program {
 
         let reward_amount = available_rewards * 10u64.pow(REWARD_TOKEN_DECIMALS as u32);
 
-        let authority_bump = &[ctx.bumps.mint_authority];
-        let authority_seeds = &[b"mint_authority".as_ref(), authority_bump.as_ref()];
+        let authority_bump = [ctx.bumps.mint_authority];
+        let authority_seeds = &[b"mint_authority".as_ref(), &authority_bump];
 
         token::mint_to(
             CpiContext::new_with_signer(
@@ -188,6 +203,7 @@ pub mod staking_program {
         )?;
 
         user_staked_acc.total_points = user_staked_acc.total_points % POINTS_PER_REWARD;
+        user_staked_acc.stake_timestamp = clock.unix_timestamp;
 
         msg!("Minted {} reward tokens to user", available_rewards);
         Ok(())
@@ -201,11 +217,13 @@ pub fn update_points(user_staked_account: &mut StakeAccount, current_time: i64) 
 
     if time_elapsed > 0 && user_staked_account.staked_amount > 0 {
         let points = calculate_points(user_staked_account.staked_amount, time_elapsed)?;
-        user_staked_account
+        user_staked_account.total_points = user_staked_account
             .total_points
             .checked_add(points)
             .ok_or(StakeError::Overflow)?;
     }
+    
+    user_staked_account.stake_timestamp = current_time;
     Ok(())
 }
 

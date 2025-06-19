@@ -1,19 +1,15 @@
 [features]
 seeds = false
 skip-lint = false
-
 [programs.localnet]
-staking = "AFYuoTEtAiRQ3kDgwjPJQFZQrbNnmZ2FFGkq7Wm7piFo"
+staking = "Fn5jnsXvawRwwBHDMMkAAHoiaRpesE6zLVVXdhKarH1d"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "/home/vaibhav/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-
-[toolchain]
-anchor_version = "0.31.1"
