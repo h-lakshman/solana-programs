@@ -4,6 +4,7 @@ package_manager = "yarn"
 [features]
 resolution = true
 skip-lint = false
+seeds = true
 
 [programs.localnet]
 governance = "nWhEAJUqEqBiBzo8BKVfRK9aYMFCjLkjy9rhP2C6hia"

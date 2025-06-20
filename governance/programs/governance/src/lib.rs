@@ -8,17 +8,16 @@ pub mod governance {
 
     pub fn create_proposal(
         ctx: Context<CreateProposal>,
+        proposal_id: u64,
         title: [u8; 108],
         votes_needed_to_pass: u64,
         voting_duration: i64,
-        proposal_id: u64,
     ) -> Result<()> {
         let proposal_account = &mut ctx.accounts.proposal;
 
         if core::str::from_utf8(&title).is_err() {
             return Err(error!(CustomError::InvalidUtf8));
         }
-
         proposal_account.title = title;
         proposal_account.creator = ctx.accounts.creator.key();
         proposal_account.votes_needed_to_pass = votes_needed_to_pass;
@@ -28,7 +27,6 @@ pub mod governance {
         proposal_account.voting_ended = 0;
         proposal_account.active_voting_count = 0;
         proposal_account.bump = ctx.bumps.proposal;
-        proposal_account.proposal_id = proposal_id;
 
         Ok(())
     }
@@ -187,7 +185,6 @@ pub struct FinalizeProposal<'info> {
 pub struct Proposal {
     pub title: [u8; 108],
     pub creator: Pubkey,
-    pub proposal_id: u64,
     pub voting_started: i64,
     pub voting_ended: i64,
     pub voting_duration: i64,
