@@ -5,7 +5,8 @@ use anchor_lang::{
         program::{invoke, invoke_signed},
         system_instruction::transfer,
     },
-};use anchor_spl::token::{self as token, Mint, MintTo, Token, TokenAccount};
+};
+use anchor_spl::token::{self as token, Mint, MintTo, Token, TokenAccount};
 
 declare_id!("Fn5jnsXvawRwwBHDMMkAAHoiaRpesE6zLVVXdhKarH1d");
 
@@ -49,6 +50,7 @@ pub struct ClaimReward<'info> {
     user_stake_account: Account<'info, StakeAccount>,
     #[account(mut)]
     reward_mint: Account<'info, Mint>,
+    /// CHECK: authority of the mint to transfer amount
     #[account(seeds = [b"mint_authority"], bump)]
     mint_authority: UncheckedAccount<'info>,
     #[account(mut)]
@@ -90,11 +92,10 @@ pub mod staking {
 
     pub fn create_stake_account(ctx: Context<CreateStakeAccount>) -> Result<()> {
         let user_new_stake_acc = &mut ctx.accounts.user_stake_account;
-        let clock = Clock::get()?;
         user_new_stake_acc.owner = ctx.accounts.user.key();
         user_new_stake_acc.staked_amount = 0;
         user_new_stake_acc.total_points = 0;
-        user_new_stake_acc.stake_timestamp = clock.unix_timestamp;
+        user_new_stake_acc.stake_timestamp = 0;
         user_new_stake_acc.bump = ctx.bumps.user_stake_account;
         msg!("User Stake account created successfully");
         Ok(())
@@ -102,22 +103,25 @@ pub mod staking {
 
     pub fn stake(ctx: Context<Stake>, quantity: u64) -> Result<()> {
         require!(quantity > 0, StakeError::InvalidAmount);
-        
-        let staked_acc_key = &ctx.accounts.user_stake_account.key();
-        let account_infos = [
-            ctx.accounts.user.to_account_info(),
-            ctx.accounts.user_stake_account.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-        ];
+
         let user_staked_account = &mut ctx.accounts.user_stake_account;
         let clock = Clock::get()?;
 
         update_points(user_staked_account, clock.unix_timestamp)?;
 
-        let transfer_instruction = transfer(&ctx.accounts.user.key(), staked_acc_key, quantity);
-        invoke(&transfer_instruction, &account_infos)?;
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.user.to_account_info(),
+                    to: user_staked_account.to_account_info(),
+                },
+            ),
+            quantity,
+        )?;
 
-        user_staked_account.staked_amount = user_staked_account.staked_amount
+        user_staked_account.staked_amount = user_staked_account
+            .staked_amount
             .checked_add(quantity)
             .ok_or(StakeError::Overflow)?;
         user_staked_account.stake_timestamp = clock.unix_timestamp;
@@ -133,35 +137,27 @@ pub mod staking {
 
     pub fn unstake(ctx: Context<Unstake>, quantity: u64) -> Result<()> {
         require!(quantity > 0, StakeError::InvalidAmount);
-        
+
         let user_staked_acc = &mut ctx.accounts.user_stake_account;
         let user_acc = &mut ctx.accounts.user;
         let clock = Clock::get()?;
-        
+
         require!(
             user_staked_acc.staked_amount >= quantity,
             StakeError::InsufficientStake
         );
-        
+
         update_points(user_staked_acc, clock.unix_timestamp)?;
 
         let user_key = user_acc.key();
-        let user_acc_seeds = &[
-            b"staked_account",
-            user_key.as_ref(),
-            &[user_staked_acc.bump],
-        ];
-        
-        let ix = transfer(&user_staked_acc.key(), &user_key, quantity);
-        let account_infos = &[
-            user_staked_acc.to_account_info(),
-            user_acc.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-        ];
 
-        invoke_signed(&ix, account_infos, &[user_acc_seeds])?;
-        
-        user_staked_acc.staked_amount = user_staked_acc.staked_amount
+        **user_staked_acc
+            .to_account_info()
+            .try_borrow_mut_lamports()? -= quantity;
+        **user_acc.to_account_info().try_borrow_mut_lamports()? += quantity;
+
+        user_staked_acc.staked_amount = user_staked_acc
+            .staked_amount
             .checked_sub(quantity)
             .ok_or(StakeError::Underflow)?;
         user_staked_acc.stake_timestamp = clock.unix_timestamp;
@@ -222,7 +218,7 @@ pub fn update_points(user_staked_account: &mut StakeAccount, current_time: i64) 
             .checked_add(points)
             .ok_or(StakeError::Overflow)?;
     }
-    
+
     user_staked_account.stake_timestamp = current_time;
     Ok(())
 }
