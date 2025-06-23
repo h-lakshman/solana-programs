@@ -1,14 +1,10 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token::{mint_to, transfer, Mint, Token, TokenAccount, Transfer, MintTo};
-use crate::state::AMMPool;
 use crate::error::AMMError;
+use crate::state::AMMPool;
 use crate::utils::integer_sqrt;
+use anchor_lang::prelude::*;
+use anchor_spl::token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer};
 
-pub fn add_liquidity(
-    ctx: Context<AddLiquidity>,
-    quantity_a: u64,
-    quantity_b: u64,
-) -> Result<()> {
+pub fn add_liquidity(ctx: Context<AddLiquidity>, quantity_a: u64, quantity_b: u64) -> Result<()> {
     require!(
         ctx.accounts.token_a_mint.key() == ctx.accounts.amm_pool.mint_a,
         AMMError::InvalidTokenMint
@@ -17,6 +13,8 @@ pub fn add_liquidity(
         ctx.accounts.token_b_account.key() == ctx.accounts.amm_pool.mint_b,
         AMMError::InvalidTokenMint
     );
+
+    require!(quantity_a > 0 && quantity_b > 0, AMMError::ZeroAmount);
 
     let liquidity_provider = &mut ctx.accounts.liquidity_provider;
     let token_account_a = &mut ctx.accounts.token_a_account;
@@ -37,12 +35,14 @@ pub fn add_liquidity(
             AMMError::InvalidLiquidity
         );
 
-        let lp_tokens_to_issue_based_on_token_a = amm_pool.total_lp_issued
+        let lp_tokens_to_issue_based_on_token_a = amm_pool
+            .total_lp_issued
             .checked_mul(quantity_a)
             .and_then(|result| result.checked_div(vault_a.amount))
             .ok_or(AMMError::ArithmeticOverflow)?;
 
-        let lp_tokens_to_issue_based_on_token_b = amm_pool.total_lp_issued
+        let lp_tokens_to_issue_based_on_token_b = amm_pool
+            .total_lp_issued
             .checked_mul(quantity_b)
             .and_then(|result| result.checked_div(vault_b.amount))
             .ok_or(AMMError::ArithmeticOverflow)?;
@@ -114,7 +114,7 @@ pub struct AddLiquidity<'info> {
     pub amm_pool: Account<'info, AMMPool>,
 
     /// CHECK: This holds the complete authority for vault A and B and lp_mint_token
-    #[account(seeds = [b"authority", token_a_mint.key().as_ref(), token_b_account.key().as_ref()], bump)]
+    #[account(seeds = [b"authority", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()], bump)]
     pub authority: UncheckedAccount<'info>,
 
     #[account(
@@ -157,5 +157,4 @@ pub struct AddLiquidity<'info> {
         associated_token::authority = liquidity_provider)]
     pub lp_token_account: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
-} 
+}

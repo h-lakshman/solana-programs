@@ -1,7 +1,7 @@
+use crate::error::AMMError;
+use crate::state::AMMPool;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use crate::state::AMMPool;
-use crate::error::AMMError;
 
 pub fn initialize_pool(ctx: Context<InitPool>) -> Result<()> {
     require!(
@@ -72,7 +72,7 @@ pub struct InitPool<'info> {
         token_b_mint.key().as_ref()],
         bump)]
     pub amm_pool: Account<'info, AMMPool>,
-    
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-} 
+}

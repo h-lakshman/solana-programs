@@ -10,4 +10,10 @@ pub enum AMMError {
     InvalidLiquidity,
     #[msg("Arithmetic operation overflow or division by zero.")]
     ArithmeticOverflow,
+    #[msg("Liquidity pool is empty")]
+    PoolEmpty,
+    #[msg("You don't have sufficient liquidity provided tokens to redeem")]
+    InsufficientLPTokens,
+    #[msg("To add to liquidity pool, quantity must be greater than zero")]
+    ZeroAmount,
 }

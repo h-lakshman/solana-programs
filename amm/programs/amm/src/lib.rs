@@ -26,4 +26,11 @@ pub mod amm {
     ) -> Result<()> {
         instructions::add_liquidity::add_liquidity(ctx, quantity_a, quantity_b)
     }
+
+    pub fn withdraw_liquidity(
+        ctx: Context<WithdrawLiquidity>,
+        lp_token_quantity: u64,
+    ) -> Result<()> {
+        instructions::withdraw_liquidity::withdraw_liquidity(ctx, lp_token_quantity)
+    }
 }
