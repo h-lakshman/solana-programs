@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{burn, close_account, transfer, Burn, CloseAccount, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{
+    burn, close_account, transfer, Burn, CloseAccount, Mint, Token, TokenAccount, Transfer,
+};
 
 use crate::{amm, error::AMMError, state::AMMPool};
 
@@ -11,7 +13,6 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_token_quantity: u6
     let vault_b = &mut ctx.accounts.vault_b;
     let amm_pool = &mut ctx.accounts.amm_pool;
     let lp_token_account = &mut ctx.accounts.lp_token_account;
- 
 
     require!(
         vault_a.amount > 0 && vault_b.amount > 0,
@@ -44,7 +45,7 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_token_quantity: u6
         ctx.accounts.token_program.to_account_info(),
         Burn {
             mint: ctx.accounts.lp_token_mint.to_account_info(),
-            from: lp_token_account.to_account_info(),       
+            from: lp_token_account.to_account_info(),
             authority: liquidity_provider.to_account_info(),
         },
     );
@@ -59,7 +60,6 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_token_quantity: u6
         &[ctx.bumps.authority],
     ];
     let signer_seeds = &[seeds];
-
 
     let transfer_quantiy_a_to_user_ix = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
@@ -84,7 +84,6 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_token_quantity: u6
     transfer(transfer_quantiy_a_to_user_ix, token_a_quantity_to_release)?;
     transfer(transfer_quantiy_b_to_user_ix, token_b_quantity_to_release)?;
 
-   
     if lp_token_quantity == lp_token_account.amount {
         let close_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -101,7 +100,7 @@ pub fn withdraw_liquidity(ctx: Context<WithdrawLiquidity>, lp_token_quantity: u6
 
 #[derive(Accounts)]
 pub struct WithdrawLiquidity<'info> {
-    pub liquidity_provider: SystemAccount<'info>,
+    pub liquidity_provider: Signer<'info>,
 
     #[account()]
     pub token_a_mint: Account<'info, Mint>,
@@ -131,6 +130,7 @@ pub struct WithdrawLiquidity<'info> {
     pub token_b_account: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"vault_token", token_a_mint.key().as_ref(), token_b_mint.key().as_ref(), b"A"],
         bump,
         token::mint = token_a_mint, 
@@ -139,6 +139,7 @@ pub struct WithdrawLiquidity<'info> {
     pub vault_a: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"vault_token", token_a_mint.key().as_ref(), token_b_mint.key().as_ref(), b"B"],
         bump,
         token::mint = token_b_mint,
@@ -147,6 +148,7 @@ pub struct WithdrawLiquidity<'info> {
     pub vault_b: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"lp_mint", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump,
     )]

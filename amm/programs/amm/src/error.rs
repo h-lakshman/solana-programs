@@ -16,4 +16,10 @@ pub enum AMMError {
     InsufficientLPTokens,
     #[msg("To add to liquidity pool, quantity must be greater than zero")]
     ZeroAmount,
+    #[msg("Insufficient funds in pool")]
+    InsufficientFundsInPool,
+    #[msg("Slippage exceeded than the mininum quantity mentioned")]
+    SlippageExceeded,
+    #[msg("Invalid vault account")]
+    InvalidVault,
 }

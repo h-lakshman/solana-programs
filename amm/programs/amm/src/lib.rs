@@ -5,9 +5,7 @@ mod instructions;
 mod state;
 mod utils;
 
-use error::*;
 use instructions::*;
-use state::*;
 
 declare_id!("8igYFZBtEYMLPmeeWNo1aFKwhMQfh7aEBJFVspu4vSff");
 
@@ -32,5 +30,14 @@ pub mod amm {
         lp_token_quantity: u64,
     ) -> Result<()> {
         instructions::withdraw_liquidity::withdraw_liquidity(ctx, lp_token_quantity)
+    }
+
+    pub fn swap(
+        ctx: Context<Swap>,
+        quantity: u64,
+        minimum_slippage_quantity: u64,
+        is_a_to_b: bool,
+    ) -> Result<()> {
+        instructions::swap::swap(ctx, quantity, minimum_slippage_quantity, is_a_to_b)
     }
 }

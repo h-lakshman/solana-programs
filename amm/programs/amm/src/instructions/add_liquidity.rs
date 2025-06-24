@@ -10,7 +10,7 @@ pub fn add_liquidity(ctx: Context<AddLiquidity>, quantity_a: u64, quantity_b: u6
         AMMError::InvalidTokenMint
     );
     require!(
-        ctx.accounts.token_b_account.key() == ctx.accounts.amm_pool.mint_b,
+        ctx.accounts.token_b_mint.key() == ctx.accounts.amm_pool.mint_b,
         AMMError::InvalidTokenMint
     );
 
@@ -70,7 +70,7 @@ pub fn add_liquidity(ctx: Context<AddLiquidity>, quantity_a: u64, quantity_b: u6
             authority: liquidity_provider.to_account_info(),
         },
     );
-
+    msg!("hi");
     transfer(transfer_quantiy_a_to_vault_ix, quantity_a)?;
     transfer(transfer_quantiy_b_to_vault_ix, quantity_b)?;
 
@@ -100,7 +100,7 @@ pub fn add_liquidity(ctx: Context<AddLiquidity>, quantity_a: u64, quantity_b: u6
 
 #[derive(Accounts)]
 pub struct AddLiquidity<'info> {
-    pub liquidity_provider: SystemAccount<'info>,
+    pub liquidity_provider: Signer<'info>,
 
     #[account()]
     pub token_a_mint: Account<'info, Mint>,
@@ -130,6 +130,7 @@ pub struct AddLiquidity<'info> {
     pub token_b_account: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"vault_token", token_a_mint.key().as_ref(), token_b_mint.key().as_ref(), b"A"],
         bump,
         token::mint = token_a_mint, 
@@ -138,6 +139,7 @@ pub struct AddLiquidity<'info> {
     pub vault_a: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"vault_token", token_a_mint.key().as_ref(), token_b_mint.key().as_ref(), b"B"],
         bump,
         token::mint = token_b_mint,
@@ -146,6 +148,7 @@ pub struct AddLiquidity<'info> {
     pub vault_b: Account<'info, TokenAccount>,
 
     #[account(
+        mut,
         seeds = [b"lp_mint", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump,
     )]
