@@ -5,15 +5,15 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::error::CLMMError;
 use crate::state::Pool;
 
-pub fn initialize_pool(
-    ctx: Context<InitializePool>,
-    sqrt_price_x64: u128,
-    current_tick: i32,
-    tick_spacing: u16,
-) -> Result<()> {
+pub fn initialize_pool(ctx: Context<InitializePool>, tick_spacing: u16) -> Result<()> {
     require!(
         ctx.accounts.token_a_mint.key() != ctx.accounts.token_b_mint.key(),
         CLMMError::SameTokenMint
+    );
+    
+    require!(
+        tick_spacing > 0 && tick_spacing <= 1000,
+        CLMMError::UnalignedTick
     );
 
     let pool = &mut ctx.accounts.pool;
@@ -25,9 +25,12 @@ pub fn initialize_pool(
     pool.total_lp_issued = 0;
     pool.bump = ctx.bumps.pool;
     pool.pool_authority = ctx.accounts.authority.key();
-    pool.sqrt_price_x64 = sqrt_price_x64;
-    pool.current_tick = current_tick;
+    pool.sqrt_price_x64 = 0; 
+    pool.current_tick = 0;
     pool.tick_spacing = tick_spacing;
+    
+    msg!("Pool initialized with tick spacing: {}", tick_spacing);
+    
     Ok(())
 }
 
@@ -42,20 +45,6 @@ pub struct InitializePool<'info> {
 
     pub token_a_mint: Account<'info, Mint>,
     pub token_b_mint: Account<'info, Mint>,
-
-    #[account(
-        mut,
-        associated_token::mint = token_a_mint,
-        associated_token::authority = initializer
-    )]
-    pub initializer_token_account_a: Account<'info, TokenAccount>,
-
-    #[account(
-        mut,
-        associated_token::mint = token_b_mint,
-        associated_token::authority = initializer
-    )]
-    pub initializer_token_account_b: Account<'info, TokenAccount>,
 
     #[account(
         init,
