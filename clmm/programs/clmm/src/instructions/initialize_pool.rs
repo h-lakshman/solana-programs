@@ -4,17 +4,17 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::error::CLMMError;
 use crate::state::Pool;
+use crate::utils::{integer_sqrt, BASE_SQRT_PRICE_X64};
 
-pub fn initialize_pool(ctx: Context<InitializePool>, tick_spacing: u16) -> Result<()> {
+//current price is the current price of a wrt b while creating the pool.
+pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Result<()> {
     require!(
         ctx.accounts.token_a_mint.key() != ctx.accounts.token_b_mint.key(),
         CLMMError::SameTokenMint
     );
-    
-    require!(
-        tick_spacing > 0 && tick_spacing <= 1000,
-        CLMMError::UnalignedTick
-    );
+
+    let sqrt_current_price = integer_sqrt(current_price as u128);
+    let curr_sqrt_price_x64 = sqrt_current_price * BASE_SQRT_PRICE_X64;
 
     let pool = &mut ctx.accounts.pool;
     pool.mint_a = ctx.accounts.token_a_mint.key();
@@ -25,12 +25,10 @@ pub fn initialize_pool(ctx: Context<InitializePool>, tick_spacing: u16) -> Resul
     pool.total_lp_issued = 0;
     pool.bump = ctx.bumps.pool;
     pool.pool_authority = ctx.accounts.authority.key();
-    pool.sqrt_price_x64 = 0; 
+    pool.sqrt_price_x64 = curr_sqrt_price_x64;
     pool.current_tick = 0;
-    pool.tick_spacing = tick_spacing;
-    
-    msg!("Pool initialized with tick spacing: {}", tick_spacing);
-    
+    pool.active_liquidity = 0;
+
     Ok(())
 }
 

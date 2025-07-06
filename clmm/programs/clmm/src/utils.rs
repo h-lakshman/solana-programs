@@ -1,3 +1,15 @@
+// notes for below constants
+// In Uniswap v3, tick represents log_1.0001(price), so prices change exponentially with ticks.
+// But since sol doesn't allow floating-point on-chain, we approximate this with a linear model:
+// We take 20000 ticks for 1 unit of sqrt_price.
+
+use crate::error::CLMMError;
+use anchor_lang::prelude::*;
+
+pub const BASE_SQRT_PRICE_X64: u128 = 1u128 << 64; // 2^64,164.64; base tick repr or tick 0
+pub const TICK_PER_BASE: u128 = 20000; // Number of ticks per 2^64 range
+pub const TICK_STEP_SIZE: u128 = BASE_SQRT_PRICE_X64 / TICK_PER_BASE; // Distance between ticks in sqrt_price_x64 space
+
 pub fn integer_sqrt(value: u128) -> u128 {
     if value == 0 {
         return 0;
@@ -15,60 +27,86 @@ pub fn integer_sqrt(value: u128) -> u128 {
 }
 
 pub fn tick_to_sqrt_price_x64(tick: i32) -> u128 {
-    // Simplified approximation: sqrt(1.0001^tick) ≈ 1 + tick * 0.00005
-    let base_price = 1u128 << 64;
     let tick_adjustment = if tick >= 0 {
-        (tick as u128) * (base_price / 20000)
+        (tick as u128) * (BASE_SQRT_PRICE_X64 / 20000)
     } else {
-        ((-tick) as u128) * (base_price / 20000)
+        ((-tick) as u128) * (BASE_SQRT_PRICE_X64 / 20000)
     };
 
     if tick >= 0 {
-        base_price + tick_adjustment
+        BASE_SQRT_PRICE_X64 + tick_adjustment
     } else {
-        base_price.saturating_sub(tick_adjustment)
+        BASE_SQRT_PRICE_X64.saturating_sub(tick_adjustment)
     }
 }
 
 pub fn sqrt_price_x64_to_tick(sqrt_price_x64: u128) -> i32 {
-    let base_price = 1u128 << 64;
-    if sqrt_price_x64 >= base_price {
-        let diff = sqrt_price_x64 - base_price;
-        (diff * 20000 / base_price) as i32
+    if sqrt_price_x64 >= BASE_SQRT_PRICE_X64 {
+        let diff = sqrt_price_x64 - BASE_SQRT_PRICE_X64;
+        (diff * 20000 / BASE_SQRT_PRICE_X64) as i32
     } else {
-        let diff = base_price - sqrt_price_x64;
-        -((diff * 20000 / base_price) as i32)
+        let diff = BASE_SQRT_PRICE_X64 - sqrt_price_x64;
+        -((diff * 20000 / BASE_SQRT_PRICE_X64) as i32)
     }
 }
 
-// Calculate liquidity for amount  when price is above range
-pub fn get_liquidity_for_amount_a(
+pub fn calculate_liquidity_amounts(
+    sqrt_price_current_x64: u128,
     sqrt_price_lower_x64: u128,
     sqrt_price_upper_x64: u128,
-    amount_a: u64,
-) -> u128 {
-    let amount = amount_a as u128;
-    let price_diff = sqrt_price_upper_x64.saturating_sub(sqrt_price_lower_x64);
+    liquidity: u128,
+) -> Result<(u64, u64)> {
+    let amount_a: u128;
+    let amount_b: u128;
 
-    if price_diff == 0 {
-        return 0;
+    if sqrt_price_current_x64 <= sqrt_price_lower_x64 {
+        // Current price is below range, only use token A
+        // amount_a = L * (Pu - Pl) / (Pu * Pl)
+        let numerator = liquidity
+            .checked_mul(sqrt_price_upper_x64 - sqrt_price_lower_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        let denominator = sqrt_price_upper_x64
+            .checked_mul(sqrt_price_lower_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+        amount_a = mul_div(numerator, BASE_SQRT_PRICE_X64, denominator)?;
+        amount_b = 0;
+    } else if sqrt_price_current_x64 >= sqrt_price_upper_x64 {
+        // Current price is above range, only use token B
+        //amount b = L * (Pu -Pl)
+        amount_a = 0;
+        amount_b = liquidity
+            .checked_mul(sqrt_price_upper_x64 - sqrt_price_lower_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(BASE_SQRT_PRICE_X64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+    } else {
+        // In-range, we need both tokens
+        // amount_a = L * (Pu - Pc) / (Pu * Pc)
+        // amount_b = L * (Pc - Pl)
+        let numerator_a = liquidity
+            .checked_mul(sqrt_price_upper_x64 - sqrt_price_current_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        let denominator_a = sqrt_price_upper_x64
+            .checked_mul(sqrt_price_current_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        amount_a = mul_div(numerator_a, BASE_SQRT_PRICE_X64, denominator_a)?;
+
+        amount_b = liquidity
+            .checked_mul(sqrt_price_current_x64 - sqrt_price_lower_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(BASE_SQRT_PRICE_X64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
     }
 
-    amount * (1u128 << 32) / price_diff
+    Ok((amount_a as u64, amount_b as u64))
 }
 
-// Calculate liquidity for amount  when price is below range
-pub fn get_liquidity_for_amount_b(
-    sqrt_price_lower_x64: u128,
-    sqrt_price_upper_x64: u128,
-    amount_b: u64,
-) -> u128 {
-    let amount = amount_b as u128;
-    let price_diff = sqrt_price_upper_x64.saturating_sub(sqrt_price_lower_x64);
-
-    if price_diff == 0 {
-        return 0;
-    }
-
-    amount * (1u128 << 64) / price_diff
+pub fn mul_div(a: u128, b: u128, denom: u128) -> Result<u128> {
+    Ok(a.checked_mul(b)
+        .ok_or(CLMMError::ArithmeticOverflow)?
+        .checked_div(denom)
+        .ok_or(CLMMError::ArithmeticOverflow)?)
 }

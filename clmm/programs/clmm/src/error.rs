@@ -28,4 +28,6 @@ pub enum CLMMError {
     TickMismatch,
     #[msg("Tick values must be aligned with tick spacing")]
     UnalignedTick,
+    #[msg("Tick Index doesn't match")]
+    InvalidTickIndex,
 }
