@@ -49,7 +49,7 @@ pub struct InitializePool<'info> {
         payer = initializer,
         seeds = [b"vault_token", token_a_mint.key().as_ref(), token_b_mint.key().as_ref(), b"A"],
         bump,
-        token::mint = token_a_mint, 
+        token::mint = token_a_mint,
         token::authority = authority
     )]
     pub vault_a: Account<'info, TokenAccount>,

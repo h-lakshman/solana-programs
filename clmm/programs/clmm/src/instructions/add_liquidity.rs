@@ -178,7 +178,7 @@ pub struct AddLiquidity<'info> {
         mut,
         seeds = [b"vault_token", token_mint_a.key().as_ref(), token_mint_b.key().as_ref(), b"A"],
         bump,
-        token::mint = token_mint_a, 
+        token::mint = token_mint_a,
         token::authority = authority
     )]
     pub vault_a: Account<'info, TokenAccount>,

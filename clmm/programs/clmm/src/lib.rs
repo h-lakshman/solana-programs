@@ -33,4 +33,14 @@ mod clmm {
     ) -> Result<()> {
         instructions::withdraw_liquidity(ctx, tick_upper, tick_lower, liquidity_to_remove)
     }
+
+    pub fn swap(
+        ctx: Context<Swap>,
+        amount_in: u64,
+        a_to_b: bool,
+        sqrt_price_limit_x64: Option<u128>,
+        min_amount_out: Option<u64>,
+    ) -> Result<()> {
+        instructions::swap(ctx, amount_in, a_to_b, sqrt_price_limit_x64, min_amount_out)
+    }
 }

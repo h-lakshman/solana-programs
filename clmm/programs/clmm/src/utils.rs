@@ -6,9 +6,9 @@
 use crate::error::CLMMError;
 use anchor_lang::prelude::*;
 
-pub const BASE_SQRT_PRICE_X64: u128 = 1u128 << 64; // 2^64,164.64; base tick repr or tick 0
+pub const BASE_SQRT_PRICE_X64: u128 = 1u128 << 64; // 2^64,Q64.64; base tick repr or tick 0
 pub const TICK_PER_BASE: u128 = 20000; // Number of ticks per 2^64 range
-pub const TICK_STEP_SIZE: u128 = BASE_SQRT_PRICE_X64 / TICK_PER_BASE; // Distance between ticks in sqrt_price_x64 space
+pub const TICK_STEP_SIZE: i32 = (BASE_SQRT_PRICE_X64 / TICK_PER_BASE) as i32; // Distance between ticks in sqrt_price_x64 space
 
 pub fn integer_sqrt(value: u128) -> u128 {
     if value == 0 {
@@ -102,6 +102,113 @@ pub fn calculate_liquidity_amounts(
     }
 
     Ok((amount_a as u64, amount_b as u64))
+}
+
+pub fn compute_swap_step(
+    sqrt_price_current_x64: u128,
+    sqrt_price_target_x64: u128,
+    liquidity: u128,
+    amount_remaining: u128,
+    a_to_b: bool,
+) -> Result<(u128, u128, u128)> {
+    let mut amount_in;
+    let mut amount_out;
+    let next_sqrt_price_x64;
+    //add fee logic later on.
+
+    if a_to_b {
+        // moving price down
+        // amount_in = L * (Pu - Pl) / (Pu * Pl)
+        let numerator1 = liquidity
+            .checked_mul(sqrt_price_current_x64 - sqrt_price_target_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+        let denominator = sqrt_price_current_x64
+            .checked_mul(sqrt_price_target_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        amount_in = mul_div(numerator1, BASE_SQRT_PRICE_X64, denominator)?;
+        if amount_remaining >= amount_in {
+            // can cross to target
+            next_sqrt_price_x64 = sqrt_price_target_x64;
+        } else {
+            // not enough amount_in to reach target sqrt_price
+            // compute new sqrt_price based on available amount_in (amount_remaining)
+            // next_sqrt_price = (L * Pc^2) / (L * Pc + Δx * Pc / Q64)
+
+            let numerator = liquidity
+                .checked_mul(sqrt_price_current_x64)
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+
+            let product = mul_div(
+                amount_remaining,
+                sqrt_price_current_x64,
+                BASE_SQRT_PRICE_X64,
+            )?;
+
+            let denominator = numerator
+                .checked_add(product)
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+
+            next_sqrt_price_x64 = numerator
+                .checked_mul(sqrt_price_current_x64)
+                .ok_or(CLMMError::ArithmeticOverflow)?
+                .checked_div(denominator)
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+        }
+        // amount out = L * (Pu -Pl)
+        amount_out = liquidity
+            .checked_mul(sqrt_price_current_x64 - next_sqrt_price_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(1u128 << 64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+    } else {
+        // moving price up
+        // amount in = L * (Pu -Pl)
+        amount_in = liquidity
+            .checked_mul(sqrt_price_target_x64 - sqrt_price_current_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(1u128 << 64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        if amount_remaining >= amount_in {
+            next_sqrt_price_x64 = sqrt_price_target_x64;
+        } else {
+            // next_sqrt_price = sqrt(P) + Δy / L
+            let delta = mul_div(amount_remaining, 1u128 << 64, liquidity)?;
+            next_sqrt_price_x64 = sqrt_price_current_x64
+                .checked_add(delta)
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+        }
+
+        // amount_out = L * (Pu - Pl) / (Pu * Pl)
+        let numerator = liquidity
+            .checked_mul(next_sqrt_price_x64 - sqrt_price_current_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+        let denominator = sqrt_price_current_x64
+            .checked_mul(next_sqrt_price_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        amount_out = mul_div(numerator, 1u128 << 64, denominator)?;
+    }
+
+    // recompute amount_in to align with actual next sqrt price
+    amount_in = if a_to_b {
+        let numerator = liquidity
+            .checked_mul(sqrt_price_current_x64 - next_sqrt_price_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+        let denominator = sqrt_price_current_x64
+            .checked_mul(next_sqrt_price_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+        mul_div(numerator, 1u128 << 64, denominator)?
+    } else {
+        liquidity
+            .checked_mul(next_sqrt_price_x64 - sqrt_price_current_x64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(1u128 << 64)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+    };
+
+    Ok((next_sqrt_price_x64, amount_in, amount_out))
 }
 
 pub fn mul_div(a: u128, b: u128, denom: u128) -> Result<u128> {

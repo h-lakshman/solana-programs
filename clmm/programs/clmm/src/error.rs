@@ -30,4 +30,10 @@ pub enum CLMMError {
     UnalignedTick,
     #[msg("Tick Index doesn't match")]
     InvalidTickIndex,
+    #[msg("Missing Tick Accounts")]
+    MissingTickAccounts,
+    #[msg("Amount too large")]
+    AmountTooLarge,
+    #[msg("Unexpected error no swap happened")]
+    ZeroSwapOutput,
 }
