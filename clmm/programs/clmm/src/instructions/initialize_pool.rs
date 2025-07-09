@@ -16,7 +16,7 @@ pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Resu
     let sqrt_current_price = integer_sqrt(current_price as u128);
     let curr_sqrt_price_x64 = sqrt_current_price * BASE_SQRT_PRICE_X64;
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let mut pool = ctx.accounts.pool.load_init()?;
     pool.mint_a = ctx.accounts.token_a_mint.key();
     pool.mint_b = ctx.accounts.token_b_mint.key();
     pool.vault_a = ctx.accounts.vault_a.key();
@@ -78,7 +78,7 @@ pub struct InitializePool<'info> {
     #[account(
         init,
         payer = initializer,
-        space = 8 + 32 * 6 + 16 + 8 + 4 + 2 + 1,
+        space = 8 + 32 * 6 + 16 * 2 + 8 + 4 + 1 + 3,
         seeds = [b"pool", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
         bump
     )]
