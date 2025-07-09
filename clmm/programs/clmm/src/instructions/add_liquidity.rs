@@ -165,14 +165,14 @@ pub struct AddLiquidity<'info> {
         associated_token::mint = token_mint_a,
         associated_token::authority = liquidity_provider
     )]
-    pub token_account_a: Account<'info, TokenAccount>,
+    pub token_account_a: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
         associated_token::mint = token_mint_b,
         associated_token::authority = liquidity_provider
     )]
-    pub token_account_b: Account<'info, TokenAccount>,
+    pub token_account_b: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -181,7 +181,7 @@ pub struct AddLiquidity<'info> {
         token::mint = token_mint_a,
         token::authority = authority
     )]
-    pub vault_a: Account<'info, TokenAccount>,
+    pub vault_a: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -190,7 +190,7 @@ pub struct AddLiquidity<'info> {
         token::mint = token_mint_b,
         token::authority = authority
     )]
-    pub vault_b: Account<'info, TokenAccount>,
+    pub vault_b: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
@@ -205,7 +205,7 @@ pub struct AddLiquidity<'info> {
         associated_token::mint = lp_token_mint,
         associated_token::authority = liquidity_provider
     )]
-    pub lp_token_account: Account<'info, TokenAccount>,
+    pub lp_token_account: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
