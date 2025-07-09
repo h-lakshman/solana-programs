@@ -12,8 +12,12 @@ declare_id!("9sfBz349EJEWpqrtFS7KJsgusGfiQBn5UbEJq58DSXvN");
 mod clmm {
 
     use super::*;
-    pub fn initialize(ctx: Context<InitializePool>, current_price: u64) -> Result<()> {
+    pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Result<()> {
         instructions::initialize_pool::initialize_pool(ctx, current_price)
+    }
+
+    pub fn initialize_tick(ctx: Context<InitializeTick>, tick_index: i32) -> Result<()> {
+        instructions::initialize_tick(ctx, tick_index)
     }
 
     pub fn add_liquidity(

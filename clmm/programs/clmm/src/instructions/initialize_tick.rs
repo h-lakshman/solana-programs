@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::Mint;
 
 use crate::{
     state::{Pool, Tick},
@@ -23,7 +24,14 @@ pub fn initialize_tick(ctx: Context<InitializeTick>, tick_index: i32) -> Result<
 pub struct InitializeTick<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    pub pool: Account<'info, Pool>,
+    pub token_a_mint: Account<'info, Mint>,
+    pub token_b_mint: Account<'info, Mint>,
+    #[account(
+        mut,
+        seeds = [b"pool", token_a_mint.key().as_ref(), token_b_mint.key().as_ref()],
+        bump
+    )]
+    pub pool: AccountLoader<'info, Pool>,
 
     #[account(
         init,

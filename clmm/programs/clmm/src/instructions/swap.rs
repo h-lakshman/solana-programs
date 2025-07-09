@@ -30,7 +30,7 @@ pub fn swap(
         tick_infos.push((account_info.clone(), tick));
     }
 
-    let pool = &mut ctx.accounts.pool;
+    let mut pool = ctx.accounts.pool.load_mut()?;
     let sqrt_price_limit =
         sqrt_price_limit_x64.unwrap_or_else(|| if a_to_b { 1 } else { u128::MAX });
 
@@ -187,7 +187,7 @@ pub struct Swap<'info> {
         seeds = [b"pool", token_mint_a.key().as_ref(), token_mint_b.key().as_ref()],
         bump
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: AccountLoader<'info, Pool>,
 
     #[account(
         mut,

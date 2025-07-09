@@ -15,7 +15,7 @@ pub fn withdraw_liquidity(
 ) -> Result<()> {
     require!(tick_upper > tick_lower, CLMMError::TickMismatch);
 
-    let pool = &mut ctx.accounts.pool;
+    let mut pool = ctx.accounts.pool.load_mut()?;
     require!(liquidity_to_remove > 0, CLMMError::ZeroAmount);
 
     require!(pool.total_lp_issued > 0, CLMMError::PoolEmpty);
@@ -150,7 +150,7 @@ pub struct WithdrawLiquidity<'info> {
         seeds = [b"pool", token_mint_a.key().as_ref(), token_mint_b.key().as_ref()],
         bump
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: AccountLoader<'info, Pool>,
 
     #[account(
         mut,

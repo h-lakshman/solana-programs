@@ -112,7 +112,7 @@ pub fn compute_swap_step(
     a_to_b: bool,
 ) -> Result<(u128, u128, u128)> {
     let mut amount_in;
-    let mut amount_out;
+    let amount_out;
     let next_sqrt_price_x64;
     //add fee logic later on.
 

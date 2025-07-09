@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
+use bytemuck::{Pod, Zeroable};
 
-#[account]
+#[account(zero_copy)]
+#[derive(Debug, Default)]
+#[repr(C)]
 pub struct Pool {
     pub mint_a: Pubkey,
     pub mint_b: Pubkey,
@@ -13,6 +16,7 @@ pub struct Pool {
     pub total_lp_issued: u64,
     pub current_tick: i32,
     pub bump: u8,
+    pub _padding: [u8; 3],
 }
 
 #[account]

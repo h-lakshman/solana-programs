@@ -12,7 +12,7 @@ pub fn add_liquidity(
 ) -> Result<()> {
     require!(tick_lower < tick_upper, CLMMError::TickMismatch);
 
-    let pool = &mut ctx.accounts.pool;
+    let mut pool = ctx.accounts.pool.load_mut()?;
     let tick_lower_acc = &mut ctx.accounts.tick_lower_acc;
     let tick_upper_acc = &mut ctx.accounts.tick_upper_acc;
     let token_a_mint = ctx.accounts.token_mint_a.key();
@@ -144,7 +144,7 @@ pub struct AddLiquidity<'info> {
         seeds = [b"pool", token_mint_a.key().as_ref(), token_mint_b.key().as_ref()],
         bump
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: AccountLoader<'info, Pool>,
 
     #[account(
         mut,
