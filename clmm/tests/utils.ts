@@ -18,3 +18,13 @@ export const integer_sqrt = (value: number): number => {
 
   return x;
 };
+
+export const tickToSqrtPriceX64 = (tick: number): BN => {
+  const tickAdjustment = new BN(Math.abs(tick)).mul(TICK_STEP_SIZE);
+
+  if (tick >= 0) {
+    return BASE_SQRT_PRICE_X64.add(tickAdjustment);
+  } else {
+    return BASE_SQRT_PRICE_X64.sub(tickAdjustment);
+  }
+};
