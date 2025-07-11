@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use rust_decimal::Decimal;
 
 use crate::error::CLMMError;
 use crate::state::Pool;
@@ -14,8 +13,8 @@ pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Resu
         CLMMError::SameTokenMint
     );
 
-    let curr_sqrt_price_x64 = price_to_sqrt_price_x64(Decimal::from(current_price))?;
-    let current_tick = sqrt_price_x64_to_tick(curr_sqrt_price_x64);
+    let curr_sqrt_price_x64 = price_to_sqrt_price_x64(current_price)?;
+    let current_tick = sqrt_price_x64_to_tick(curr_sqrt_price_x64)?;
 
     let mut pool = ctx.accounts.pool.load_init()?;
     pool.mint_a = ctx.accounts.token_a_mint.key();

@@ -52,7 +52,7 @@ pub fn swap(
     );
 
     for (_tick_acc_info, tick) in tick_infos {
-        let next_sqrt_price_x64 = tick_to_sqrt_price_x64(tick.index);
+        let next_sqrt_price_x64 = tick_to_sqrt_price_x64(tick.index)?;
 
         if (a_to_b && next_sqrt_price_x64 < sqrt_price_limit)
             || (!a_to_b && next_sqrt_price_x64 > sqrt_price_limit)

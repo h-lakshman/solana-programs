@@ -36,4 +36,10 @@ pub enum CLMMError {
     AmountTooLarge,
     #[msg("Unexpected error no swap happened")]
     ZeroSwapOutput,
+    #[msg("The tick must be lesser than, or equal to the maximum tick(221818)")]
+    TickUpperOverflow,
+    #[msg("The tick must be greater, or equal to the minimum tick(-221818)")]
+    TickLowerOverflow,
+    #[msg("sqrt_price_x64 out of range")]
+    SqrtPriceX64,
 }

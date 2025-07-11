@@ -9,7 +9,7 @@ use crate::{
 pub fn initialize_tick(ctx: Context<InitializeTick>, tick_index: i32) -> Result<()> {
     let tick = &mut ctx.accounts.tick;
 
-    let sqrt_price_x64 = tick_to_sqrt_price_x64(tick_index);
+    let sqrt_price_x64 = tick_to_sqrt_price_x64(tick_index)?;
 
     tick.index = tick_index;
     tick.sqrt_price_x64 = sqrt_price_x64;

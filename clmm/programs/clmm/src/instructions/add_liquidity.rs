@@ -3,7 +3,6 @@ use crate::{error::CLMMError, state::Pool, utils::*};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer};
-use rust_decimal::prelude::*;
 
 pub fn add_liquidity(
     ctx: Context<AddLiquidity>,
@@ -61,8 +60,8 @@ pub fn add_liquidity(
         &[ctx.bumps.authority],
     ];
 
-    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower);
-    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper);
+    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower)?;
+    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper)?;
 
     let (amount_a, amount_b) = calculate_liquidity_amounts(
         pool.sqrt_price_x64,
@@ -101,13 +100,11 @@ pub fn add_liquidity(
     // LP token calculation based on actual token value contributed
     let mint_amount = if pool.total_lp_issued == 0 {
         if amount_a > 0 && amount_b > 0 {
+            // Use geometric mean for initial liquidity: sqrt(amount_a * amount_b)
             let product = (amount_a as u128)
                 .checked_mul(amount_b as u128)
                 .ok_or(CLMMError::ArithmeticOverflow)?;
-            let sqrt_product = Decimal::from(product)
-                .sqrt()
-                .ok_or(CLMMError::ArithmeticOverflow)?;
-            sqrt_product.to_u64().ok_or(CLMMError::ArithmeticOverflow)?
+            integer_sqrt(product)
         } else {
             std::cmp::max(amount_a, amount_b)
         }
@@ -140,7 +137,9 @@ pub fn add_liquidity(
             0
         };
 
-        std::cmp::min(share_from_a, share_from_b).to_u64().unwrap()
+        std::cmp::min(share_from_a, share_from_b)
+            .try_into()
+            .map_err(|_| CLMMError::ArithmeticOverflow)?
     };
 
     pool.total_lp_issued = pool

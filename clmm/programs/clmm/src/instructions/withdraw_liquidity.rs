@@ -27,8 +27,8 @@ pub fn withdraw_liquidity(
     let tick_upper_acc = &mut ctx.accounts.tick_upper_acc;
     let tick_lower_acc = &mut ctx.accounts.tick_lower_acc;
     // Calculate sqrt prices for the position bounds
-    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower);
-    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper);
+    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower)?;
+    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper)?;
 
     // LP token calculation: proportional to actual token value being withdrawn
     let (withdraw_amount_a, withdraw_amount_b) = calculate_liquidity_amounts(
