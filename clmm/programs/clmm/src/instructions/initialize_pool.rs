@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 
 use crate::error::CLMMError;
 use crate::state::Pool;
-use crate::utils::price_to_sqrt_price_x64;
+use crate::utils::{price_to_sqrt_price_x64, sqrt_price_x64_to_tick};
 
 //current price is the current price of a wrt b while creating the pool.
 pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Result<()> {
@@ -15,6 +15,7 @@ pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Resu
     );
 
     let curr_sqrt_price_x64 = price_to_sqrt_price_x64(Decimal::from(current_price))?;
+    let current_tick = sqrt_price_x64_to_tick(curr_sqrt_price_x64);
 
     let mut pool = ctx.accounts.pool.load_init()?;
     pool.mint_a = ctx.accounts.token_a_mint.key();
@@ -26,7 +27,7 @@ pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Resu
     pool.bump = ctx.bumps.pool;
     pool.pool_authority = ctx.accounts.authority.key();
     pool.sqrt_price_x64 = curr_sqrt_price_x64;
-    pool.current_tick = 0;
+    pool.current_tick = current_tick;
     pool.active_liquidity = 0;
 
     Ok(())
