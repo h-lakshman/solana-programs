@@ -3,6 +3,7 @@ use crate::{error::CLMMError, state::Pool, utils::*};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer};
+use rust_decimal::prelude::*;
 
 pub fn add_liquidity(
     ctx: Context<AddLiquidity>,
@@ -97,14 +98,49 @@ pub fn add_liquidity(
         )?;
     }
 
+    // LP token calculation based on actual token value contributed
     let mint_amount = if pool.total_lp_issued == 0 {
-        liquidity as u64
+        if amount_a > 0 && amount_b > 0 {
+            let product = (amount_a as u128)
+                .checked_mul(amount_b as u128)
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+            let sqrt_product = Decimal::from(product)
+                .sqrt()
+                .ok_or(CLMMError::ArithmeticOverflow)?;
+            sqrt_product.to_u64().ok_or(CLMMError::ArithmeticOverflow)?
+        } else {
+            std::cmp::max(amount_a, amount_b)
+        }
     } else {
-        ((liquidity as u128)
-            .checked_mul(pool.total_lp_issued as u128)
-            .ok_or(CLMMError::ArithmeticOverflow)?
-            .checked_div(pool.active_liquidity)
-            .ok_or(CLMMError::ArithmeticOverflow)?) as u64
+        // Calculate LP tokens based on proportional contribution to pool value
+        let pool_balance_a = ctx.accounts.vault_a.amount;
+        let pool_balance_b = ctx.accounts.vault_b.amount;
+
+        if pool_balance_a == 0 && pool_balance_b == 0 {
+            return Err(CLMMError::PoolEmpty.into());
+        }
+
+        let share_from_a = if pool_balance_a > 0 {
+            (amount_a as u128)
+                .checked_mul(pool.total_lp_issued as u128)
+                .ok_or(CLMMError::ArithmeticOverflow)?
+                .checked_div(pool_balance_a as u128)
+                .ok_or(CLMMError::ArithmeticOverflow)?
+        } else {
+            0
+        };
+
+        let share_from_b = if pool_balance_b > 0 {
+            (amount_b as u128)
+                .checked_mul(pool.total_lp_issued as u128)
+                .ok_or(CLMMError::ArithmeticOverflow)?
+                .checked_div(pool_balance_b as u128)
+                .ok_or(CLMMError::ArithmeticOverflow)?
+        } else {
+            0
+        };
+
+        std::cmp::min(share_from_a, share_from_b).to_u64().unwrap()
     };
 
     pool.total_lp_issued = pool

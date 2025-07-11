@@ -26,11 +26,51 @@ pub fn withdraw_liquidity(
 
     let tick_upper_acc = &mut ctx.accounts.tick_upper_acc;
     let tick_lower_acc = &mut ctx.accounts.tick_lower_acc;
-    let lp_tokens_to_burn = ((liquidity_to_remove as u128)
-        .checked_mul(pool.total_lp_issued as u128)
-        .ok_or(CLMMError::ArithmeticOverflow)?
-        .checked_div(pool.active_liquidity)
-        .ok_or(CLMMError::ArithmeticOverflow)?) as u64;
+    // Calculate sqrt prices for the position bounds
+    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower);
+    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper);
+
+    // LP token calculation: proportional to actual token value being withdrawn
+    let (withdraw_amount_a, withdraw_amount_b) = calculate_liquidity_amounts(
+        pool.sqrt_price_x64,
+        sqrt_price_lower_x64,
+        sqrt_price_upper_x64,
+        liquidity_to_remove,
+    )?;
+
+    let pool_balance_a = ctx.accounts.vault_a.amount;
+    let pool_balance_b = ctx.accounts.vault_b.amount;
+
+    // Calculate LP tokens based on proportional value being withdrawn
+    let lp_tokens_to_burn = if pool_balance_a > 0 && pool_balance_b > 0 {
+        let share_from_a = (withdraw_amount_a as u128)
+            .checked_mul(pool.total_lp_issued as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(pool_balance_a as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        let share_from_b = (withdraw_amount_b as u128)
+            .checked_mul(pool.total_lp_issued as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(pool_balance_b as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?;
+
+        std::cmp::max(share_from_a, share_from_b) as u64
+    } else if pool_balance_a > 0 {
+        ((withdraw_amount_a as u128)
+            .checked_mul(pool.total_lp_issued as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(pool_balance_a as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?) as u64
+    } else if pool_balance_b > 0 {
+        ((withdraw_amount_b as u128)
+            .checked_mul(pool.total_lp_issued as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?
+            .checked_div(pool_balance_b as u128)
+            .ok_or(CLMMError::ArithmeticOverflow)?) as u64
+    } else {
+        return Err(CLMMError::PoolEmpty.into());
+    };
     require_eq!(
         tick_lower_acc.index,
         tick_lower,
@@ -62,15 +102,8 @@ pub fn withdraw_liquidity(
             .ok_or(CLMMError::ArithmeticOverflow)?;
     }
 
-    let sqrt_price_lower_x64 = tick_to_sqrt_price_x64(tick_lower);
-    let sqrt_price_upper_x64 = tick_to_sqrt_price_x64(tick_upper);
-
-    let (amount_a, amount_b) = calculate_liquidity_amounts(
-        pool.sqrt_price_x64,
-        sqrt_price_lower_x64,
-        sqrt_price_upper_x64,
-        liquidity_to_remove,
-    )?;
+    // Use the amounts already calculated above
+    let (amount_a, amount_b) = (withdraw_amount_a, withdraw_amount_b);
     let token_a_mint = ctx.accounts.token_mint_a.key();
     let token_b_mint = ctx.accounts.token_mint_b.key();
 
