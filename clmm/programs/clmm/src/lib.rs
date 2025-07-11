@@ -22,20 +22,20 @@ mod clmm {
 
     pub fn add_liquidity(
         ctx: Context<AddLiquidity>,
-        tick_upper: i32,
         tick_lower: i32,
+        tick_upper: i32,
         liquidity: u128,
     ) -> Result<()> {
-        instructions::add_liquidity(ctx, tick_upper, tick_lower, liquidity)
+        instructions::add_liquidity(ctx, tick_lower, tick_upper, liquidity)
     }
 
     pub fn withdraw_liquidity(
         ctx: Context<WithdrawLiquidity>,
-        tick_upper: i32,
         tick_lower: i32,
+        tick_upper: i32,
         liquidity_to_remove: u128,
     ) -> Result<()> {
-        instructions::withdraw_liquidity(ctx, tick_upper, tick_lower, liquidity_to_remove)
+        instructions::withdraw_liquidity(ctx, tick_lower, tick_upper, liquidity_to_remove)
     }
 
     pub fn swap(

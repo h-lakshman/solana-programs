@@ -1,10 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
+use rust_decimal::Decimal;
 
 use crate::error::CLMMError;
 use crate::state::Pool;
-use crate::utils::{integer_sqrt, BASE_SQRT_PRICE_X64};
+use crate::utils::price_to_sqrt_price_x64;
 
 //current price is the current price of a wrt b while creating the pool.
 pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Result<()> {
@@ -13,8 +14,7 @@ pub fn initialize_pool(ctx: Context<InitializePool>, current_price: u64) -> Resu
         CLMMError::SameTokenMint
     );
 
-    let sqrt_current_price = integer_sqrt(current_price as u128);
-    let curr_sqrt_price_x64 = sqrt_current_price * BASE_SQRT_PRICE_X64;
+    let curr_sqrt_price_x64 = price_to_sqrt_price_x64(Decimal::from(current_price))?;
 
     let mut pool = ctx.accounts.pool.load_init()?;
     pool.mint_a = ctx.accounts.token_a_mint.key();

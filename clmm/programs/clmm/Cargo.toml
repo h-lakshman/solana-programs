@@ -21,6 +21,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anchor-spl = "0.31.1"
 bytemuck = "1.23.1"
+clear = "0.1.0"
 rust_decimal = { version = "1.37", features = ["maths"] }
 rust_decimal_macros = "1.37"
 

@@ -6,8 +6,8 @@ use anchor_spl::token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Tr
 
 pub fn add_liquidity(
     ctx: Context<AddLiquidity>,
-    tick_upper: i32,
     tick_lower: i32,
+    tick_upper: i32,
     liquidity: u128,
 ) -> Result<()> {
     require!(tick_lower < tick_upper, CLMMError::TickMismatch);
@@ -32,7 +32,7 @@ pub fn add_liquidity(
     require!(pool.mint_b == token_b_mint, CLMMError::InvalidTokenMint);
 
     require!(
-        tick_lower % TICK_PER_BASE as i32 == 0 && tick_upper % TICK_PER_BASE as i32 == 0,
+        tick_lower % TICK_SPACING as i32 == 0 && tick_upper % TICK_SPACING as i32 == 0,
         CLMMError::UnalignedTick
     );
 

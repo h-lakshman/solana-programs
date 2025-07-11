@@ -4,13 +4,13 @@ use anchor_spl::token::{burn, transfer, Burn, Mint, Token, TokenAccount, Transfe
 use crate::{
     error::CLMMError,
     state::{Pool, Tick},
-    utils::{calculate_liquidity_amounts, tick_to_sqrt_price_x64, TICK_PER_BASE},
+    utils::{calculate_liquidity_amounts, tick_to_sqrt_price_x64, TICK_SPACING},
 };
 
 pub fn withdraw_liquidity(
     ctx: Context<WithdrawLiquidity>,
-    tick_upper: i32,
     tick_lower: i32,
+    tick_upper: i32,
     liquidity_to_remove: u128,
 ) -> Result<()> {
     require!(tick_upper > tick_lower, CLMMError::TickMismatch);
@@ -20,7 +20,7 @@ pub fn withdraw_liquidity(
 
     require!(pool.total_lp_issued > 0, CLMMError::PoolEmpty);
     require!(
-        tick_lower % TICK_PER_BASE as i32 == 0 && tick_upper % TICK_PER_BASE as i32 == 0,
+        tick_lower % TICK_SPACING == 0 && tick_upper % TICK_SPACING as i32 == 0,
         CLMMError::UnalignedTick
     );
 
